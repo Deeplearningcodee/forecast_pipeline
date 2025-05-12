@@ -1,0 +1,20 @@
+name: Weekly Drive Forecast
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6AM UTC
+  workflow_dispatch:
+
+jobs:
+  drive_forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run pipeline
+        run: python forecast_pipeline_drive.py
