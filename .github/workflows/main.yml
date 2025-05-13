@@ -21,8 +21,3 @@ jobs:
           GDRIVE_MYCREDS: ${{ secrets.GDRIVE_MYCREDS }}
         run: python forecast_pipeline_drive.py
 
-      - name: Upload outputs as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: forecast-output
-          path: output/
