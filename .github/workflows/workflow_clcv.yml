@@ -1,5 +1,5 @@
 # .github/workflows/pipeline.yml
-name: Forecast Pipeline
+name: Forecast Pipeline for Clcv
 
 # 1) Trigger on schedule
 on:
