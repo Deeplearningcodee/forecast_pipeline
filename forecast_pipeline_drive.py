@@ -91,7 +91,7 @@ def download_inputs():
         out = WORKDIR / name
         url = f"https://drive.google.com/uc?id={fid}"
         logging.info(f"Téléchargement de {name}")
-        gdown.download(url, str(out), quiet=False, overwrite=True)
+        gdown.download(url, str(out), quiet=False)
 
 # -----------------------------------------------------------------------------
 # 3) CHARGEMENT & PRÉPARATION DES DONNÉES
