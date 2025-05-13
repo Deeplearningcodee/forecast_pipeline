@@ -1,0 +1,27 @@
+# .github/workflows/pipeline.yml
+name: Weekly Forecast Pipeline
+
+on:
+  schedule:
+    - cron: '0 2 * * MON'    # Lundi 02:00 UTC
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install pandas numpy statsmodels scikit-learn gdown PyDrive2
+
+      - name: Run pipeline
+        env:
+          GDRIVE_MYCREDS:       ${{ secrets.GDRIVE_MYCREDS }}
+        run: python forecast_pipeline_drive.py
+
+   
