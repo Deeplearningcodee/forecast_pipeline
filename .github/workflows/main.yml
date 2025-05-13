@@ -1,20 +1,28 @@
-name: Weekly Drive Forecast
-
+name: Weekly Forecast Pipeline
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 6AM UTC
-  workflow_dispatch:
-
+    - cron:  '0 2 * * MON'   # chaque lundi à 02:00 UTC
 jobs:
-  drive_forecast:
+  run-pipeline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run pipeline
+        run: pip install pandas numpy statsmodels scikit-learn gdown PyDrive2
+
+      - name: Run forecast_pipeline
+        env:
+          GDRIVE_MYCREDS: ${{ secrets.GDRIVE_MYCREDS }}
         run: python forecast_pipeline_drive.py
+
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: forecast-output
+          path: output/
