@@ -1,0 +1,38 @@
+# .github/workflows/pipeline.yml
+name: Forecast Pipeline
+
+# 1) Trigger on schedule
+on:
+  schedule:
+    - cron: '0 2 * * MON'    # every Monday at 02:00 UTC
+
+  # 2) Manual trigger
+  workflow_dispatch:
+
+  # 3) Also run on any push to main (for testing)
+  push:
+    branches:
+      - main
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install pandas numpy statsmodels scikit-learn gdown PyDrive2
+
+      - name: Run pipeline
+        env:
+          GDRIVE_MYCREDS:       ${{ secrets.GDRIVE_MYCREDS }}
+        run: python forecast_pipeline_clcv.py
+
+      
