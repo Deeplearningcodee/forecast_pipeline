@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+forecast_pipeline_drive.py
 
 – Télécharge les inputs depuis Google Drive via gdown
 – Extrait les coefficients calendaires pour DRIVE
@@ -13,10 +14,12 @@
 Prérequis :
   pip install pandas numpy statsmodels scikit-learn gdown PyDrive2
   + client_secrets.json (OAuth Desktop App)
-  + mycreds.txt (déjà généré)
+  + mycreds.txt (sera généré automatiquement via secret env)
 """
+import os
 import logging
 from pathlib import Path
+
 import gdown
 import pandas as pd
 import numpy as np
@@ -29,7 +32,18 @@ from sklearn.metrics import (
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
+# -----------------------------------------------------------------------------
+# 0) INJECT MYCREDS FROM ENV SECRET
+# -----------------------------------------------------------------------------
+# If running in CI/GitHub Actions with GDRIVE_MYCREDS secret,
+# write it to mycreds.txt
+if os.getenv("GDRIVE_MYCREDS"):
+    with open("mycreds.txt", "w") as f:
+        f.write(os.environ["GDRIVE_MYCREDS"])
+
+# -----------------------------------------------------------------------------
 # 1) CONFIGURATION
+# -----------------------------------------------------------------------------
 INPUT_FILES = {
     'historique_corrige_drive.csv': '1St2k0ZUNEP-UesbedluVKGUSGIAEwWGu',
     'Calendrier.csv':                '1X-szdCNtW62MWyOpn21wDkxinx_1Ijp9',
@@ -57,7 +71,9 @@ ZONE_MAP = {
     'PPC_LPP':          'C',
 }
 
+# -----------------------------------------------------------------------------
 # 2) UTILITAIRES
+# -----------------------------------------------------------------------------
 def _yearweek(date):
     iso = date.isocalendar()
     return f"{iso.year}-{iso.week:02d}"
@@ -75,9 +91,11 @@ def download_inputs():
         out = WORKDIR / name
         url = f"https://drive.google.com/uc?id={fid}"
         logging.info(f"Téléchargement de {name}")
-        gdown.download(url, str(out), quiet=False)
+        gdown.download(url, str(out), quiet=False, overwrite=True)
 
-# 3) CHARGEMENT & PRÉPARATION
+# -----------------------------------------------------------------------------
+# 3) CHARGEMENT & PRÉPARATION DES DONNÉES
+# -----------------------------------------------------------------------------
 def load_drive_history():
     df = pd.read_csv(
         HIST_FILE,
@@ -136,7 +154,9 @@ def build_drive_dataset():
     df['ZONE_SCOLAIRE'] = df['site'].map(ZONE_MAP).fillna('C')
     return df
 
+# -----------------------------------------------------------------------------
 # 4) PIPELINE : RÉGRESSION & MÉTRIQUES
+# -----------------------------------------------------------------------------
 def run_pipeline():
     download_inputs()
     df = build_drive_dataset()
