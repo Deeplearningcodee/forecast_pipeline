@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+forecast_pipeline_clcv.py
 
 – Télécharge les inputs depuis Google Drive via gdown
 – Extrait les coefficients calendaires pour CLCV
@@ -8,8 +9,6 @@
      • coefficients_clcv.csv       (format long)
      • coefficients_clcv_wide.csv  (format wide)
      • metrics_clcv.csv            (métriques performance)
-– Upload headless de ces fichiers vers un dossier Google Drive via PyDrive2 + refresh token
-
 """
 import os
 import logging
@@ -47,6 +46,16 @@ PAYE_FILE  = WORKDIR / "Paye_calendrier.csv"
 OUT_COEF   = OUTPUT_DIR / "coefficients_clcv.csv"
 OUT_COEF_W = OUTPUT_DIR / "coefficients_clcv_wide.csv"
 OUT_METRICS= OUTPUT_DIR / "metrics_clcv.csv"
+
+SELECT_SITES = [
+    "CLCV_Venissieux",
+    "CLCV_Nantes",
+    "CLCV_Houplines",
+    "CLCV_Rungis",
+    "CLCV_Vitry",
+    "CLCV_VLG",
+    "CLCV_Castries",
+]
 
 # Mapping sites → zone scolaire (CLCV)
 ZONE_MAP = {
@@ -150,18 +159,35 @@ def build_clcv_dataset() -> pd.DataFrame:
 def run_pipeline():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.info("Starting CLCV pipeline")
+
+    # 1) Download inputs
     download_inputs()
 
+    # 2) Build dataset
     df = build_clcv_dataset()
+
+    # 3) Variables calendaires
     vars_cal = [
         "TYPE_SEM_ZONE",
         "SEM_FERIE","SEM_PRE_FERIE","SEM_POST_FERIE",
         "TYPE_SEM_FERIE","TYPE_SEM_PAYE_FCT",
     ]
 
+    # 4) Liste des sites à conserver
+    SELECT_SITES = [
+        "CLCV_Venissieux",
+        "CLCV_Nantes",
+        "CLCV_Houplines",
+        "CLCV_Rungis",
+        "CLCV_Vitry",
+        "CLCV_VLG",
+        "CLCV_Castries",
+    ]
+
     metrics = []
     results = []
 
+    # 5) Boucle par site
     for site, grp in df.groupby("site"):
         grp = grp.sort_values("ID_SEM").reset_index(drop=True)
         grp["t"] = np.arange(len(grp))
@@ -183,35 +209,47 @@ def run_pipeline():
 
         metrics.append({
             "site": site,
-            "r2_insample": r2_score(y_true, y_pred),
-            "mae_insample": mean_absolute_error(y_true, y_pred),
+            "r2_insample":   r2_score(y_true, y_pred),
+            "mae_insample":  mean_absolute_error(y_true, y_pred),
             "mape_insample": mean_absolute_percentage_error(y_true, y_pred),
-            "r2_2024":    (r2_score(yt24, yp24)   if len(yt24)>0 else np.nan),
-            "mae_2024":   (mean_absolute_error(yt24, yp24) if len(yt24)>0 else np.nan),
-            "mape_2024":  (mean_absolute_percentage_error(yt24, yp24) if len(yt24)>0 else np.nan),
+            "r2_2024":       (r2_score(yt24, yp24) if len(yt24)>0 else np.nan),
+            "mae_2024":      (mean_absolute_error(yt24, yp24) if len(yt24)>0 else np.nan),
+            "mape_2024":     (mean_absolute_percentage_error(yt24, yp24) if len(yt24)>0 else np.nan),
         })
 
         coefs = mod.params.reset_index()
-        coefs.columns = ["variable","coef"]
+        coefs.columns = ["variable", "coef"]
         coefs["site"] = site
         results.append(coefs)
 
-    # export long
+    # 6) Export long (filtré)
     df_coefs = pd.concat(results, ignore_index=True)[["site","variable","coef"]]
+    df_coefs = df_coefs[df_coefs["site"].isin(SELECT_SITES)]
     df_coefs.to_csv(OUT_COEF, sep=";", decimal=",", encoding="latin-1", index=False)
 
-    # export wide
+    # 7) Export wide (à partir du long déjà filtré)
     df_wide = df_coefs.pivot(index="site", columns="variable", values="coef").reset_index()
     df_wide.to_csv(OUT_COEF_W, sep=";", decimal=",", encoding="latin-1", index=False)
 
-    # export metrics
-    pd.DataFrame(metrics).to_csv(OUT_METRICS, sep=";", decimal=",", encoding="latin-1", index=False)
+    # 8) Export metrics (on peut aussi filtrer si besoin)
+    df_metrics = pd.DataFrame(metrics)
+    df_metrics = df_metrics[df_metrics["site"].isin(SELECT_SITES)]
+    df_metrics.to_csv(OUT_METRICS, sep=";", decimal=",", encoding="latin-1", index=False)
 
-    logging.info("✅ CLCV pipeline complete, files in 'output/'")
+    logging.info("✅ CLCV pipeline complete, filtered files generated in 'output/'")
 
-    # upload headless
+    # 9) Upload headless
     drive = get_drive()
     for path in [OUT_COEF, OUT_COEF_W, OUT_METRICS]:
+        logging.info(f"Uploading {path.name}")
+        f = drive.CreateFile({
+            "title": path.name,
+            "parents": [{"id": UPLOAD_FOLDER_ID}]
+        })
+        f.SetContentFile(str(path))
+        f.Upload()
+        logging.info(f"Uploaded → {path.name}")
+
         logging.info(f"Uploading {path.name}")
         f = drive.CreateFile({
             "title": path.name,
